@@ -1,0 +1,61 @@
+run:
+  run_descriptor: "ucsf_aria_binary_proto_dr"
+  output_root: "/data/rauschecker2/jkw/aria/exp"
+  random_seed: 42
+
+dataset:
+  name: "ucsf_aria_proto"
+  builder: "ucsf_proto"
+  window_days: 183
+  followup_windows_months: [6, 12, 18, 24]
+  require_aria_context: true
+  require_followup_within_window: true
+  paths:
+    annotations: "/data/rauschecker2/jkw/aria/data/ucsf_aria/labeled/combined_annotations.xlsx"
+    reports: "/data/rauschecker2/jkw/aria/data/ucsf_aria/search-pruned_aria _ lecanemab _ donanemab _ solanezumab _ aducanumab _ gantenerumab _ remternetug.xlsx"
+    apoe: "/data/rauschecker2/jkw/aria/data/ucsf_aria/ucsf-aria_mrn-apoe4_Nabaan_01.17.26.xlsx"
+
+analysis:
+  estimand: "overlap"
+  treatment_column: "treatment"
+  apoe_column: "apoe_status"
+  outcome_columns:
+    - "aria_e_incident_6mo"
+    - "aria_e_incident_12mo"
+    - "aria_e_incident_18mo"
+    - "aria_e_incident_24mo"
+    - "aria_h_incident_6mo"
+    - "aria_h_incident_12mo"
+    - "aria_h_incident_18mo"
+    - "aria_h_incident_24mo"
+    - "aria_any_incident_6mo"
+    - "aria_any_incident_12mo"
+    - "aria_any_incident_18mo"
+    - "aria_any_incident_24mo"
+  categorical_covariates:
+    - "sex"
+    - "diagnosis"
+  numeric_covariates:
+    - "age"
+    - "baseline_exam_year"
+  propensity_model:
+    type: "logistic_regression"
+    C: 1.0
+    max_iter: 3000
+  outcome_model:
+    type: "gradient_boosting"
+    n_estimators: 200
+    learning_rate: 0.05
+    max_depth: 2
+  cate_model:
+    type: "random_forest"
+    n_estimators: 400
+    min_samples_leaf: 5
+    n_jobs: -1
+  bootstrap_iterations: 200
+  propensity_clip:
+    min: 0.01
+    max: 0.99
+  overlap_warning_thresholds:
+    low: 0.05
+    high: 0.95

@@ -1,0 +1,71 @@
+run:
+  run_descriptor: "ucsf_aria_risk_set_curated_controls_ate_no_apoe"
+  output_root: "/data/rauschecker2/jkw/aria/exp"
+  random_seed: 42
+
+dataset:
+  name: "ucsf_aria_risk_set_curated_controls"
+  builder: "ucsf_risk_set"
+  baseline_window_days: 365
+  followup_window_days: 183
+  followup_windows_months: [6, 12, 18, 24]
+  controls_per_treated: 2
+  min_controls_per_treated: 2
+  paths:
+    annotations: "/data/rauschecker2/jkw/aria/data/ucsf_aria/labeled/combined_annotations.xlsx"
+    reports: "/data/rauschecker2/jkw/aria/data/ucsf_aria/search-pruned_aria _ lecanemab _ donanemab _ solanezumab _ aducanumab _ gantenerumab _ remternetug.xlsx"
+    apoe: "/data/rauschecker2/jkw/aria/data/ucsf_aria/ucsf-aria_mrn-apoe4_Nabaan_01.17.26.xlsx"
+    control_reports: "/data/rauschecker2/jkw/aria/data/ucsf_aria/search_controls_acc-mrn.xlsx"
+    control_annotations: "/data/rauschecker2/jkw/aria/data/ucsf_aria/labeled-llm_control/2026-03-08_002238/aria_labels_us.anthropic.claude_opus_4_5_20251101_v1:0.csv"
+    control_apoe_curated: "/data/rauschecker2/jkw/aria/data/ucsf_aria/ucsf-aria_control_mrn-apoe4.xlsx"
+
+analysis:
+  estimand: "ate"
+  use_apoe: false
+  treatment_column: "treatment"
+  outcome_columns:
+    - "aria_e_6mo"
+    - "aria_e_12mo"
+    - "aria_e_18mo"
+    - "aria_e_24mo"
+    - "aria_h_6mo"
+    - "aria_h_12mo"
+    - "aria_h_18mo"
+    - "aria_h_24mo"
+    - "aria_any_6mo"
+    - "aria_any_12mo"
+    - "aria_any_18mo"
+    - "aria_any_24mo"
+  categorical_covariates:
+    - "sex"
+    - "diagnosis"
+  numeric_covariates:
+    - "age"
+    - "baseline_exam_year"
+    - "baseline_imaging_count_365d"
+    - "days_since_last_baseline_exam"
+    - "diagnosis_alzheimer_flag"
+    - "diagnosis_mci_flag"
+    - "diagnosis_dementia_flag"
+  propensity_model:
+    type: "logistic_regression"
+    C: 1.0
+    max_iter: 3000
+  outcome_model:
+    type: "gradient_boosting"
+    n_estimators: 200
+    learning_rate: 0.05
+    max_depth: 2
+  cate_model:
+    type: "random_forest"
+    n_estimators: 400
+    min_samples_leaf: 5
+    n_jobs: -1
+  bootstrap_iterations: 200
+  min_group_size_warning: 10
+  propensity_clip:
+    min: 0.01
+    max: 0.99
+  overlap_warning_thresholds:
+    low: 0.05
+    high: 0.95

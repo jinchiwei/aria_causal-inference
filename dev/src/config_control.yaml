@@ -1,0 +1,33 @@
+# ARIA Labeling Configuration - Control Arm (Alzheimer/MCI/Dementia)
+
+# Model zoo - control arm uses only Opus 4.5
+models:
+  - "us.anthropic.claude-opus-4-5-20251101-v1:0"
+
+# Conditions to label
+conditions:
+  - "aria_e"
+  - "aria_h"
+  - "edema"
+  - "effusion"
+  - "microhemorrhage"
+  - "superficial_siderosis"
+
+# Data paths
+data:
+  input_file: "/data/rauschecker2/jkw/aria/data/ucsf_aria/search_AlzheimerMCIDementia_acc-mrn.xlsx"
+  base_output_dir: "/data/rauschecker2/jkw/aria/data/ucsf_aria/labeled-llm_control"
+
+# Environment
+environment:
+  conda_env: "/data/rauschecker1/jkw/envs/praria"
+
+# SLURM settings
+slurm:
+  job_name: "mxj-aria_control"
+  partition: "dgx,gpu"
+  time: "0-23:59:59"
+  memory: "32G"
+  cpus: 2
+  gpu: 1
+  max_concurrent: 5

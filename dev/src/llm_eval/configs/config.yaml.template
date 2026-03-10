@@ -1,0 +1,49 @@
+# ARIA Prediction Pipeline Configuration Template
+# Copy this file to config.yaml and fill in your specific values
+
+# Data Configuration
+data:
+  source_path: "path/to/your/data"  # Update with your actual data path
+  raw_data_dir: "data/raw"
+  processed_data_dir: "data/processed"
+
+# Output Configuration
+output:
+  base_dir: "exp"
+  experiment_name: "experiment_YYYYMMDD_HHMMSS"  # Will be auto-generated with timestamp
+  save_models: true
+  save_predictions: true
+
+# Model Hyperparameters
+model:
+  type: "your_model_type"  # e.g., "random_forest", "neural_network"
+  parameters:
+    # Add your specific hyperparameters here
+    learning_rate: 0.001
+    batch_size: 32
+    epochs: 100
+    # ... other parameters
+
+# Training Configuration
+training:
+  train_test_split: 0.8
+  validation_split: 0.2
+  random_state: 42
+  cross_validation_folds: 5
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_to_file: true
+  log_dir: "logs"
+
+# Pipeline Settings
+pipeline:
+  preprocessing_steps:
+    - "normalize"
+    - "feature_selection"
+  evaluation_metrics:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1_score"

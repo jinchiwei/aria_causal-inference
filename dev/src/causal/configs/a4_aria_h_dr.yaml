@@ -1,0 +1,66 @@
+run:
+  run_descriptor: "a4_aria_h_incident_dr"
+  output_root: "/data/rauschecker2/jkw/aria/exp"
+  random_seed: 42
+
+dataset:
+  name: "a4"
+  builder: "a4"
+  window_days: 183
+  followup_windows_months: [6, 12, 18, 24]
+  baseline_visit_code: 1
+  exclude_baseline_positive_for_incident: true
+  active_treatment_labels:
+    - "Solanezumab"
+  placebo_labels:
+    - "Placebo"
+  paths:
+    adqs: "/data/rauschecker2/jkw/aria/data/a4/Clinical/Derived Data/ADQS.csv"
+    dose: "/data/rauschecker2/jkw/aria/data/a4/Clinical/Raw Data/dose.csv"
+    mri_reads: "/data/rauschecker2/jkw/aria/data/a4/Clinical/External Data/imaging_MRI_reads.csv"
+
+analysis:
+  estimand: "ate"
+  patient_id_column: "patient_id"
+  treatment_column: "treatment"
+  # a4 only supports aria-h-like outcomes in the current source data.
+  outcome_columns:
+    - "aria_h_incident_6mo"
+    - "aria_h_incident_12mo"
+    - "aria_h_incident_18mo"
+    - "aria_h_incident_24mo"
+  apoe_column: "apoe_status"
+  categorical_covariates:
+    - "sex"
+    - "race"
+    - "ethnicity"
+  numeric_covariates:
+    - "age"
+    - "education"
+    - "baseline_bmi"
+    - "baseline_amyloid_centiloid"
+    - "baseline_definite_mch"
+    - "baseline_definite_ss"
+    - "baseline_lobar"
+    - "baseline_deep"
+  propensity_model:
+    type: "logistic_regression"
+    C: 1.0
+    max_iter: 2000
+  outcome_model:
+    type: "gradient_boosting"
+    n_estimators: 200
+    learning_rate: 0.05
+    max_depth: 2
+  cate_model:
+    type: "random_forest"
+    n_estimators: 400
+    min_samples_leaf: 10
+    n_jobs: -1
+  propensity_clip:
+    min: 0.01
+    max: 0.99
+  overlap_warning_thresholds:
+    low: 0.05
+    high: 0.95
+  bootstrap_iterations: 200

@@ -1,0 +1,42 @@
+# ARIA Labeling Configuration
+
+# Model zoo - all new models
+models:
+  - "o4-mini-2025-04-16"
+  - "gpt-5-2025-08-07"
+  - "gpt-5-mini-2025-08-07"
+  - "gpt-5-nano-2025-08-07"
+  - "anthropic.claude-3-5-sonnet-20240620-v1:0"
+  - "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  - "us.anthropic.claude-sonnet-4-20250514-v1:0"
+  - "us.anthropic.claude-opus-4-1-20250805-v1:0"
+  - "us.anthropic.claude-opus-4-5-20251101-v1:0"
+  - "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+# Conditions to label
+conditions:
+  - "aria_e"
+  - "aria_h" 
+  - "edema"
+  - "effusion"
+  - "microhemorrhage"
+  - "superficial_siderosis"
+
+# Data paths
+data:
+  input_file: "/data/rauschecker2/jkw/aria/data/ucsf_aria/search-pruned_aria _ lecanemab _ donanemab _ solanezumab _ aducanumab _ gantenerumab _ remternetug.xlsx"
+  base_output_dir: "/data/rauschecker2/jkw/aria/exp"
+
+# Environment
+environment:
+  conda_env: "/data/rauschecker1/jkw/envs/praria"
+
+# SLURM settings
+slurm:
+  job_name: "mxj-aria_labels"
+  partition: "dgx,gpu"
+  time: "0-23:59:59"
+  memory: "32G"
+  cpus: 2
+  gpu: 1
+  max_concurrent: 5

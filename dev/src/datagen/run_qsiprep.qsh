@@ -1,0 +1,103 @@
+#!/bin/bash
+#SBATCH --output=/data/rauschecker1/projects/dmg/logs/02qsiprep/%x_%j.log
+#SBATCH --error=/data/rauschecker1/projects/dmg/logs/02qsiprep/%x_%j.log
+#SBATCH --ntasks=1                        # Run on a single CPU
+#SBATCH --cpus-per-task=8                 # Number of CPU cores per task
+#SBATCH --mem=16G                         # Total memory requirement
+#SBATCH --time=24:00:00                   # Time limit hrs:min:sec
+#SBATCH --array=1-1                       # Array job with 1 task
+
+#SBATCH --job-name=qsiprep                # Job name
+
+## 0. In case TMPDIR is not set, e.g. on development nodes, set
+##    it to local /scratch, if it exists, otherwise to /tmp
+# TMPDIR=/wynton/scratch/$USER
+if [[ -z "$TMPDIR" ]]; then
+  if [[ -d /scratch ]]; then TMPDIR=/scratch/$USER; else TMPDIR=/tmp/$USER; fi
+  mkdir -p "$TMPDIR"
+  export TMPDIR
+fi
+
+ncpus="${SLURM_CPUS_PER_TASK:-3}"
+array_task_id="${SLURM_ARRAY_TASK_ID:-1}"  # change default here if testing
+
+echo -e "Running on $(hostname) at $(date), with ${ncpus} slots for task ${array_task_id}\n"
+source utils.sh
+
+# Variables
+VERSION="unstable"
+BIDS_DIR=$1
+OUTPUT_RES=$2 # 2.0 for HARDI, 1.7 for ABCD
+DERIVATIVES_DIR=$BIDS_DIR/derivatives
+FS_LICENSE=/data/rauschecker1/utils/tools/freesurfer_license.txt
+subject_csv=${BIDS_DIR}/participants_sessions.csv
+BIDS_FILTER_FILE="${BIDS_DIR}/bids_filter.json"
+if [[ -z "${BIDS_FILTER_FILE}" ]]; then
+  bidsfilterbinding=""
+else
+  bidsfilterbinding=",${BIDS_FILTER_FILE}:${BIDS_FILTER_FILE}"
+  echo "BIDS_FILTER_FILE defined as ${BIDS_FILTER_FILE}"
+fi
+
+echo "TMPDIR=${TMPDIR}"
+echo "qsiprep version = ${VERSION}"
+echo -e "Step 1. Get subject from list with ID${array_task_id} from ${subject_csv}"
+subjectID=$(python3 -c "with open('${subject_csv}', 'r') as file: print([line.strip().split(',')[0] for line in file.readlines()][${array_task_id}-1])")
+sessionID=$(python3 -c "with open('${subject_csv}', 'r') as file: print([line.strip().split(',')[1] for line in file.readlines()][${array_task_id}-1])")
+echo subject=$subjectID, session=$sessionID
+
+WORK_DIR=$TMPDIR/qsiprep_sub-${subjectID}_ses-${sessionID}
+echo "WORK_DIR=${WORK_DIR}"
+mkdir -p $WORK_DIR
+
+##### USER DEFINITIONS HERE #####
+preproc_dir_name=nii
+directories_to_copy=(${preproc_dir_name})  ### add others like qsiprep if want to use precomputed results
+copy_to_tmp "$BIDS_DIR" "$WORK_DIR" "$subjectID" "$sessionID" "$preproc_dir_name" "${directories_to_copy[@]}"
+DERIVATIVES_DIR_TMP=$WORK_DIR/derivatives
+#################################
+# export CUDA_VISIBLE_DEVICES=1
+
+echo -e "Step 2. Run QSIPrep"
+    # -B /wynton/protected/group/rsl/psych/code/qsiprep/qsiprep:/opt/conda/envs/qsiprep/lib/python3.10/site-packages/qsiprep \
+    # --env CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES \
+    # -B $EDDY_CONFIG:$EDDY_CONFIG \
+    # --nv \
+    # --unringing-method mrdegibbs --denoise-method dwidenoise \
+apptainer run --cleanenv \
+    -B ${DERIVATIVES_DIR_TMP}:/derivatives:ro,${DERIVATIVES_DIR_TMP}:/out,${WORK_DIR}:${WORK_DIR},${FS_LICENSE}:/opt/freesurfer/license.txt \
+    -B $BIDS_FILTER_FILE:$BIDS_FILTER_FILE \
+    /data/rauschecker1/utils/tools/qsiprep_${VERSION}.sif \
+    /derivatives/nii /out participant \
+    --fs-license-file /opt/freesurfer/license.txt \
+    --output-resolution $OUTPUT_RES \
+    --work-dir ${WORK_DIR} \
+    --participant-label ${subjectID} \
+    --separate-all-dwis \
+    --skip-anat-based-spatial-normalization \
+    --nthreads ${ncpus} \
+    --omp-nthreads $((ncpus - 2)) \
+    --bids-filter-file ${BIDS_FILTER_FILE} \
+    --stop-on-first-crash \
+    -v -v
+
+#     # --bids-filter-file ${BIDS_FILTER_FILE} \
+
+# Copy files over to main disk
+echo -e "Copying files back to main disk..."
+if [[ ! -d ${DERIVATIVES_DIR_TMP}/qsiprep ]]; then 
+  # look for the structure derivatives/sub* (new version of qsiprep?)
+  mkdir -p ${BIDS_DIR}/derivatives/qsiprep
+  cp -r ${DERIVATIVES_DIR_TMP}/sub* ${DERIVATIVES_DIR_TMP}/qsiprep
+else
+  cp -r ${DERIVATIVES_DIR_TMP}/qsiprep ${BIDS_DIR}/derivatives
+fi
+
+# Clean up
+# echo -e "Cleaning up..."
+# rm -rf ${WORK_DIR}
+
+## End-of-job summary, if running as a job
+[[ -n "$JOB_ID" ]] && qstat -j "$JOB_ID"  # This is useful for debugging and usage purposes,
+                                          # e.g. "did my job exceed its memory request?"
+date

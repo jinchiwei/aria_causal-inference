@@ -1,0 +1,43 @@
+# large/generated project directories
+/data/
+/exp/
+/logs/
+
+# skip any folder named arc anywhere in the repo
+arc/
+**/arc/
+
+# python caches and build artifacts
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# virtual environments
+.venv/
+venv/
+env/
+
+# notebook/editor noise
+.ipynb_checkpoints/
+*.ipynb
+.DS_Store
+.vscode/
+.idea/
+
+# local logs and temp files
+*.log
+*.tmp
+*.swp
+
+# local utility outputs
+dev/src/utils/azure_versa_usage.csv

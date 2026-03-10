@@ -1,0 +1,33 @@
+#!/bin/bash
+#SBATCH --output=/data/rauschecker1/jkw/projects/alzheimers/aria/aria_prediction_modeling/logs/01sqc/%x_%j.log
+#SBATCH --mem=8G                  # Memory requirement
+#SBATCH --cpus-per-task=1         # Number of CPU cores
+#SBATCH --time=02:00:00           # Time limit in HH:MM:SS
+##SBATCH --tmp=15G                 # Temporary local storage requirement
+# --error=/data/rauschecker1/jkw/projects/alzheimers/aria/aria_prediction_modeling/logs/01sqc/%x_%j.log
+date
+hostname
+
+dcm_dir=$1
+accession_number=$2
+rename_subjectID=$3
+rename_sessionID=$4
+bids_dir=$5
+dcm_bids_dir=${dcm_dir}/sub-${rename_subjectID}/ses-${rename_sessionID}
+
+echo "Unzipping data for ${accession_number}"
+mkdir -p ${dcm_bids_dir}
+unzip -q ${dcm_dir}/${accession_number}.zip -d ${dcm_bids_dir}
+rm ${dcm_dir}/${accession_number}.zip
+
+echo "Running sequence classifier for ${accession_number}"
+python /data/rauschecker1/utils/common_tools/run_sequence-classifier.py \
+    -i ${dcm_bids_dir} \
+    -o ${bids_dir} \
+    --classifier_csv_fp ${dcm_bids_dir}/sequence_classifier.csv \
+    --logfile ${dcm_bids_dir}/sequence_classifier.log \
+    --model_config /data/rauschecker1/jkw/repos/sequence-classifier/sequence_classifier/rules.json \
+    --no_dl -vvv -ow
+
+echo "Sequence classifier for ${accession_number} complete"
+date
