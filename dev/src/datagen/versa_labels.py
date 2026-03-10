@@ -178,12 +178,16 @@ def load_data(data_path):
     return accession_to_report
 
 
-def generate_labels_for_model(model_name, accession_to_report, conditions, verbose=False):
+def generate_labels_for_model(model_name, accession_to_report, conditions, output_dir, verbose=False):
     """Generate labels for all conditions using a specific model"""
     print(f"Generating labels using model: {model_name}")
     
     # Initialize VersaAI
-    versa_ai = versa_api.VersaAI(deployment=model_name)
+    versa_ai = versa_api.VersaAI(
+        deployment=model_name,
+        usage_log_dir=output_dir,
+        run_dir=output_dir,
+    )
     
     # Storage for results
     results = {}
@@ -204,7 +208,14 @@ def generate_labels_for_model(model_name, accession_to_report, conditions, verbo
             prompt = PROMPTS[condition] + str(report)
             
             try:
-                response = versa_ai.predict(prompt, verbose=verbose)
+                response = versa_ai.predict(
+                    prompt,
+                    verbose=verbose,
+                    request_metadata={
+                        "condition": condition,
+                        "accession": accession,
+                    },
+                )
                 
                 # Parse response based on condition type
                 if condition in ["aria_e", "aria_h"]:
@@ -293,7 +304,7 @@ def main():
 
     # Generate labels
     results, reasoning_storage = generate_labels_for_model(
-        args.model, accession_to_report, conditions, args.verbose
+        args.model, accession_to_report, conditions, output_dir, args.verbose
     )
 
     # Create output DataFrame

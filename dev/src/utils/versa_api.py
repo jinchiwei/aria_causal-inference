@@ -2,6 +2,7 @@ import os
 import csv
 import datetime
 import getpass
+import sys
 import pandas as pd
 from anthropic import AnthropicBedrock
 from openai import AzureOpenAI
@@ -65,11 +66,63 @@ anthropic_client = AnthropicBedrock(
 
 # Class for handling both Azure OpenAI and Anthropic Bedrock interactions
 class VersaAI:
-    def __init__(self, deployment=DEPLOYMENT):
+    USAGE_LOG_COLUMNS = [
+        "timestamp",
+        "user",
+        "client_type",
+        "deployment",
+        "script_name",
+        "run_dir",
+        "condition",
+        "accession",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+    ]
+
+    def __init__(self, deployment=DEPLOYMENT, usage_log_dir=None, usage_log_path=None, run_dir=None):
         self.deployment = deployment
         # Determine which client to use based on model name
         self.client_type = self._determine_client_type(deployment)
+        self.run_dir = str(run_dir) if run_dir else None
+        self.usage_log_path = self._resolve_usage_log_path(
+            usage_log_dir=usage_log_dir,
+            usage_log_path=usage_log_path,
+        )
         print(f"Initialized VersaAI with model: {deployment} (using {self.client_type} client)")
+
+    def _resolve_usage_log_path(self, usage_log_dir=None, usage_log_path=None) -> Path:
+        if usage_log_path:
+            log_path = Path(usage_log_path)
+        elif usage_log_dir:
+            log_path = Path(usage_log_dir) / "versa_usage.csv"
+        else:
+            log_path = Path.cwd() / "versa_usage.csv"
+
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        return log_path
+
+    def _extract_usage_counts(self, usage, client_type):
+        if client_type == "anthropic":
+            prompt_tokens = getattr(usage, "input_tokens", None)
+            completion_tokens = getattr(usage, "output_tokens", None)
+        else:
+            prompt_tokens = getattr(usage, "prompt_tokens", None)
+            completion_tokens = getattr(usage, "completion_tokens", None)
+
+        total_tokens = getattr(usage, "total_tokens", None)
+        if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
+            total_tokens = prompt_tokens + completion_tokens
+
+        return prompt_tokens, completion_tokens, total_tokens
+
+    def _ensure_usage_log_header(self):
+        if self.usage_log_path.exists() and self.usage_log_path.stat().st_size > 0:
+            return
+
+        with open(self.usage_log_path, "a+", newline="") as fp:
+            writer = csv.writer(fp)
+            writer.writerow(self.USAGE_LOG_COLUMNS)
 
     def _determine_client_type(self, model_name: str) -> str:
         """Determine if the model is OpenAI or Anthropic based on its name."""
@@ -89,7 +142,8 @@ class VersaAI:
             print(f"Warning: Could not determine client type for model '{model_name}', defaulting to OpenAI")
             return "openai"
 
-    def predict(self, prompt: str, verbose: bool = False) -> str:
+    def predict(self, prompt: str, verbose: bool = False, request_metadata=None) -> str:
+        request_metadata = request_metadata or {}
         try:
             if self.client_type == "anthropic":
                 # Use Anthropic Bedrock client
@@ -101,7 +155,7 @@ class VersaAI:
                 completion = response.content[0].text if hasattr(response.content[0], 'text') else str(response.content[0])
                 # Log usage for Anthropic (if available)
                 if hasattr(response, 'usage'):
-                    self.log_usage(response.usage, client_type="anthropic")
+                    self.log_usage(response.usage, client_type="anthropic", request_metadata=request_metadata)
             else:
                 # Use Azure OpenAI client
                 response = openai_client.chat.completions.create(
@@ -110,7 +164,7 @@ class VersaAI:
                 )
                 completion = response.choices[0].message.content
                 # Log usage for OpenAI
-                self.log_usage(response.usage, client_type="openai")
+                self.log_usage(response.usage, client_type="openai", request_metadata=request_metadata)
 
             if verbose:
                 print(f"User: {prompt}\nResponse: {completion}")
@@ -121,38 +175,31 @@ class VersaAI:
             print(f"Error in prediction with {self.client_type} client: {e}")
             return "Error in API response"
 
-    @staticmethod
-    def log_usage(usage, client_type="openai"):
+    def log_usage(self, usage, client_type="openai", request_metadata=None):
         """Log usage statistics for both OpenAI and Anthropic models."""
-        log_file = "/data/rauschecker2/jkw/aria/dev/src/utils/azure_versa_usage.csv"
-
+        request_metadata = request_metadata or {}
+        prompt_tokens, completion_tokens, total_tokens = self._extract_usage_counts(
+            usage, client_type
+        )
         try:
-            with open(log_file, "a+", newline="") as fp:
+            self._ensure_usage_log_header()
+            with open(self.usage_log_path, "a+", newline="") as fp:
                 writer = csv.writer(fp)
-
-                if client_type == "anthropic":
-                    # Anthropic usage format might be different
-                    if hasattr(usage, 'input_tokens') and hasattr(usage, 'output_tokens'):
-                        writer.writerow(
-                            [
-                                usage.input_tokens,
-                                usage.output_tokens,
-                                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                getpass.getuser(),
-                                "anthropic"  # Add client type to log
-                            ]
-                        )
-                else:
-                    # OpenAI usage format
-                    writer.writerow(
-                        [
-                            usage.prompt_tokens,
-                            usage.completion_tokens,
-                            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            getpass.getuser(),
-                            "openai"  # Add client type to log
-                        ]
-                    )
+                writer.writerow(
+                    [
+                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        getpass.getuser(),
+                        client_type,
+                        self.deployment,
+                        Path(sys.argv[0]).name,
+                        self.run_dir,
+                        request_metadata.get("condition"),
+                        request_metadata.get("accession"),
+                        prompt_tokens,
+                        completion_tokens,
+                        total_tokens,
+                    ]
+                )
         except Exception as e:
             print(f"Warning: Could not log usage: {e}")
 
