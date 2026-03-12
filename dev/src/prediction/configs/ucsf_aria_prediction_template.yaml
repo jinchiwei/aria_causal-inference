@@ -1,0 +1,84 @@
+run:
+  output_root: /data/rauschecker2/jkw/aria/exp
+  run_descriptor: ucsf_aria_prediction
+  random_seed: 42
+
+dataset:
+  name: ucsf_aria_prediction
+  builder: prebuilt
+  paths:
+    cohort: /data/rauschecker2/jkw/aria/exp/20260309_ucsf_aria_risk_set_curated_controls_overlap/analysis_cohort_6mo.csv
+
+analysis:
+  outcome_column: aria_any_6mo
+  id_column: patient_id
+  treatment_filter: 1
+  time_column: treatment_start_date
+  n_calibration_bins: 10
+
+  split:
+    method: random
+    test_size: 0.25
+    time_column: treatment_start_date
+
+  numeric_features:
+    - age
+    - education
+    - baseline_exam_year
+    - baseline_imaging_count_365d
+    - days_since_last_baseline_exam
+    - available_control_count
+
+  categorical_features:
+    - apoe_status
+    - sex
+    - race
+    - diagnosis
+    - treatment_label
+
+  experiments:
+    - name: apoe_only_logistic
+      model_type: logistic_regression
+      features:
+        - apoe_status
+
+    - name: known_risk_factors_logistic
+      model_type: logistic_regression
+      features:
+        - apoe_status
+        - age
+        - sex
+        - diagnosis
+        - treatment_label
+        - baseline_imaging_count_365d
+        - days_since_last_baseline_exam
+
+    - name: full_clinical_logistic
+      model_type: logistic_regression
+      features:
+        - apoe_status
+        - age
+        - sex
+        - race
+        - diagnosis
+        - treatment_label
+        - education
+        - baseline_exam_year
+        - baseline_imaging_count_365d
+        - days_since_last_baseline_exam
+        - available_control_count
+
+    - name: full_clinical_random_forest
+      model_type: random_forest
+      features:
+        - apoe_status
+        - age
+        - sex
+        - race
+        - diagnosis
+        - treatment_label
+        - education
+        - baseline_exam_year
+        - baseline_imaging_count_365d
+        - days_since_last_baseline_exam
+        - available_control_count
